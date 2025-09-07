@@ -3,9 +3,9 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 -- Criar Janela
 local Window = Rayfield:CreateWindow({
-   Name = "Menu Custom",
+   Name = "Kds Hub",
    LoadingTitle = "Carregando...",
-   LoadingSubtitle = "by Kaio",
+   LoadingSubtitle = "by KDSS",
    ConfigurationSaving = { Enabled = false }
 })
 
@@ -13,66 +13,38 @@ local Window = Rayfield:CreateWindow({
 local PlayerTab = Window:CreateTab("Player", 4483362458)
 local VisualTab = Window:CreateTab("Visual", 4483362464)
 local AimbotTab = Window:CreateTab("Aimbot", 4483362470)
-local MovementTab = Window:CreateTab("Movement", 4483362475)
 
 -- Serviços e variáveis globais
 local player = game.Players.LocalPlayer
 local runService = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
 
--- Variáveis de funcionalidades
+-- Variáveis Player
 local flyNoclip = false
 local walkSpeedEnabled = false
 local walkSpeedValue = 32
-local espEnabled = false
-local espLineEnabled = false
-local aimbotEnabled = false
-local fovValue = 100
 local speedTPEnabled = false
-local tpDistance = 6 -- distância de cada mini tp
-local tpDelay = 0.02 -- delay entre mini tps
-
--- Movimentação Fly Noclip
+local tpDistance = 5
+local tpDelay = 0.01
+local tpDirection = {W=false,A=false,S=false,D=false}
 local movement = {W=false,A=false,S=false,D=false,Q=false,E=false}
+
+-- Captura inputs
 uis.InputBegan:Connect(function(input, processed)
     if processed then return end
-    if movement[input.KeyCode.Name] ~= nil then
-        movement[input.KeyCode.Name] = true
-    end
+    if tpDirection[input.KeyCode.Name] ~= nil then tpDirection[input.KeyCode.Name] = true end
+    if movement[input.KeyCode.Name] ~= nil then movement[input.KeyCode.Name] = true end
 end)
+
 uis.InputEnded:Connect(function(input)
-    if movement[input.KeyCode.Name] ~= nil then
-        movement[input.KeyCode.Name] = false
-    end
+    if tpDirection[input.KeyCode.Name] ~= nil then tpDirection[input.KeyCode.Name] = false end
+    if movement[input.KeyCode.Name] ~= nil then movement[input.KeyCode.Name] = false end
 end)
 
--- Loop Fly Noclip
-runService.RenderStepped:Connect(function()
-    if flyNoclip and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = player.Character.HumanoidRootPart
-        local camCF = workspace.CurrentCamera.CFrame
-        local moveDir = Vector3.new()
-
-        if movement.W then moveDir += camCF.LookVector end
-        if movement.S then moveDir -= camCF.LookVector end
-        if movement.A then moveDir -= camCF.RightVector end
-        if movement.D then moveDir += camCF.RightVector end
-        if movement.E then moveDir += camCF.UpVector end
-        if movement.Q then moveDir -= camCF.UpVector end
-
-        if moveDir.Magnitude > 0 then
-            hrp.CFrame = hrp.CFrame + (moveDir.Unit * 5)
-        end
-
-        for _,v in pairs(player.Character:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.CanCollide = false
-            end
-        end
-    end
-end)
-
--- Fly Noclip Toggle
+-------------------------------------------------------------------
+-- Player Tab: Fly Noclip, WalkSpeed, Speed TP
+-------------------------------------------------------------------
+-- Fly Noclip
 PlayerTab:CreateToggle({
    Name = "Fly Noclip",
    CurrentValue = false,
@@ -82,9 +54,7 @@ PlayerTab:CreateToggle({
    end,
 })
 
--------------------------------------------------------------------
--- WALK SPEED
--------------------------------------------------------------------
+-- WalkSpeed
 PlayerTab:CreateToggle({
    Name = "WalkSpeed",
    CurrentValue = false,
@@ -112,9 +82,75 @@ PlayerTab:CreateSlider({
    end,
 })
 
+-- Speed TP
+PlayerTab:CreateToggle({
+    Name = "Speed TP",
+    CurrentValue = false,
+    Flag = "SpeedTPToggle",
+    Callback = function(Value)
+        speedTPEnabled = Value
+    end
+})
+
+PlayerTab:CreateSlider({
+    Name = "TP Distance",
+    Range = {1, 20},
+    Increment = 1,
+    Suffix = "Studs",
+    CurrentValue = tpDistance,
+    Flag = "TPDistance",
+    Callback = function(Value)
+        tpDistance = Value
+    end
+})
+
+-- Loop Fly Noclip e Speed TP
+runService.RenderStepped:Connect(function()
+    -- Fly Noclip
+    if flyNoclip and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = player.Character.HumanoidRootPart
+        local camCF = workspace.CurrentCamera.CFrame
+        local moveDir = Vector3.new()
+        if movement.W then moveDir += camCF.LookVector end
+        if movement.S then moveDir -= camCF.LookVector end
+        if movement.A then moveDir -= camCF.RightVector end
+        if movement.D then moveDir += camCF.RightVector end
+        if movement.E then moveDir += camCF.UpVector end
+        if movement.Q then moveDir -= camCF.UpVector end
+
+        if moveDir.Magnitude > 0 then
+            hrp.CFrame = hrp.CFrame + (moveDir.Unit * 5)
+        end
+
+        for _,v in pairs(player.Character:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = false
+            end
+        end
+    end
+
+    -- Speed TP
+    if speedTPEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = player.Character.HumanoidRootPart
+        local camCF = workspace.CurrentCamera.CFrame
+        local moveVector = Vector3.new()
+        if tpDirection.W then moveVector += camCF.LookVector end
+        if tpDirection.S then moveVector -= camCF.LookVector end
+        if tpDirection.A then moveVector -= camCF.RightVector end
+        if tpDirection.D then moveVector += camCF.RightVector end
+        if moveVector.Magnitude > 0 then
+            hrp.CFrame = hrp.CFrame + (moveVector.Unit * tpDistance)
+            task.wait(tpDelay)
+        end
+    end
+end)
+
 -------------------------------------------------------------------
--- ESP (Box + Line)
+-- Visual Tab: ESP Box + ESP Line
 -------------------------------------------------------------------
+local espEnabled = false
+local espLineEnabled = false
+
 local function createESP(plr)
     if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
         local box = Instance.new("BoxHandleAdornment")
@@ -186,8 +222,10 @@ VisualTab:CreateToggle({
 })
 
 -------------------------------------------------------------------
--- AIMBOT MOBILE
+-- Aimbot Tab: Auto Head Aim + FOV
 -------------------------------------------------------------------
+local aimbotEnabled = false
+local fovValue = 100
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = false
 fovCircle.Thickness = 1
@@ -217,7 +255,7 @@ AimbotTab:CreateSlider({
     end
 })
 
--- Função para achar alvo mais próximo no FOV
+-- Função para encontrar alvo dentro do FOV
 local function getClosestTarget()
     local closestPlayer = nil
     local shortestDistance = fovValue
@@ -236,7 +274,7 @@ local function getClosestTarget()
     return closestPlayer
 end
 
--- Loop aimbot
+-- Loop Aimbot
 runService.RenderStepped:Connect(function()
     if aimbotEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         local target = getClosestTarget()
@@ -246,61 +284,6 @@ runService.RenderStepped:Connect(function()
         if aimbotEnabled then
             fovCircle.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y/2)
             fovCircle.Radius = fovValue
-        end
-    end
-end)
-
--------------------------------------------------------------------
--- SPEED TP (mini teleports)
--------------------------------------------------------------------
-local tpDirection = {W=false,A=false,S=false,D=false}
-
-uis.InputBegan:Connect(function(input, processed)
-    if processed then return end
-    if tpDirection[input.KeyCode.Name] ~= nil then
-        tpDirection[input.KeyCode.Name] = true
-    end
-end)
-uis.InputEnded:Connect(function(input)
-    if tpDirection[input.KeyCode.Name] ~= nil then
-        tpDirection[input.KeyCode.Name] = false
-    end
-end)
-
-MovementTab:CreateToggle({
-    Name = "Speed TP",
-    CurrentValue = false,
-    Flag = "SpeedTPToggle",
-    Callback = function(Value)
-        speedTPEnabled = Value
-    end
-})
-
-MovementTab:CreateSlider({
-    Name = "TP Distance",
-    Range = {1, 20},
-    Increment = 1,
-    Suffix = "Studs",
-    CurrentValue = tpDistance,
-    Flag = "TPDistance",
-    Callback = function(Value)
-        tpDistance = Value
-    end
-})
-
--- Loop Speed TP
-runService.RenderStepped:Connect(function()
-    if speedTPEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = player.Character.HumanoidRootPart
-        local camCF = workspace.CurrentCamera.CFrame
-        local moveVector = Vector3.new()
-        if tpDirection.W then moveVector += camCF.LookVector end
-        if tpDirection.S then moveVector -= camCF.LookVector end
-        if tpDirection.A then moveVector -= camCF.RightVector end
-        if tpDirection.D then moveVector += camCF.RightVector end
-        if moveVector.Magnitude > 0 then
-            hrp.CFrame = hrp.CFrame + (moveVector.Unit * tpDistance)
-            task.wait(tpDelay)
         end
     end
 end)
