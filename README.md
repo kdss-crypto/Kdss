@@ -28,6 +28,9 @@ local tpDistance = 5
 local tpDelay = 0.01
 local tpDirection = {W=false,A=false,S=false,D=false}
 local movement = {W=false,A=false,S=false,D=false,Q=false,E=false}
+local infinityJumpEnabled = false
+local floatEnabled = false
+local floatGravity = 0.5 -- quanto menor, mais devagar cai
 
 -- Captura inputs
 uis.InputBegan:Connect(function(input, processed)
@@ -41,9 +44,17 @@ uis.InputEnded:Connect(function(input)
     if movement[input.KeyCode.Name] ~= nil then movement[input.KeyCode.Name] = false end
 end)
 
+-- Infinity Jump
+uis.JumpRequest:Connect(function()
+    if infinityJumpEnabled and player.Character and player.Character:FindFirstChild("Humanoid") then
+        player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
 -------------------------------------------------------------------
--- Player Tab: Fly Noclip, WalkSpeed, Speed TP
+-- Player Tab: Fly Noclip, WalkSpeed, Speed TP, Infinity Jump, Float
 -------------------------------------------------------------------
+
 -- Fly Noclip
 PlayerTab:CreateToggle({
    Name = "Fly Noclip",
@@ -104,43 +115,73 @@ PlayerTab:CreateSlider({
     end
 })
 
--- Loop Fly Noclip e Speed TP
+-- Infinity Jump
+PlayerTab:CreateToggle({
+    Name = "Infinity Jump",
+    CurrentValue = false,
+    Flag = "InfinityJumpToggle",
+    Callback = function(Value)
+        infinityJumpEnabled = Value
+    end
+})
+
+-- Float
+PlayerTab:CreateToggle({
+    Name = "Float",
+    CurrentValue = false,
+    Flag = "FloatToggle",
+    Callback = function(Value)
+        floatEnabled = Value
+    end
+})
+
+-- Loop Fly Noclip, Speed TP e Float
 runService.RenderStepped:Connect(function()
-    -- Fly Noclip
-    if flyNoclip and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         local hrp = player.Character.HumanoidRootPart
+        local humanoid = player.Character:FindFirstChild("Humanoid")
         local camCF = workspace.CurrentCamera.CFrame
-        local moveDir = Vector3.new()
-        if movement.W then moveDir += camCF.LookVector end
-        if movement.S then moveDir -= camCF.LookVector end
-        if movement.A then moveDir -= camCF.RightVector end
-        if movement.D then moveDir += camCF.RightVector end
-        if movement.E then moveDir += camCF.UpVector end
-        if movement.Q then moveDir -= camCF.UpVector end
 
-        if moveDir.Magnitude > 0 then
-            hrp.CFrame = hrp.CFrame + (moveDir.Unit * 5)
-        end
-
-        for _,v in pairs(player.Character:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.CanCollide = false
+        -- Fly Noclip
+        if flyNoclip then
+            local moveDir = Vector3.new()
+            if movement.W then moveDir += camCF.LookVector end
+            if movement.S then moveDir -= camCF.LookVector end
+            if movement.A then moveDir -= camCF.RightVector end
+            if movement.D then moveDir += camCF.RightVector end
+            if movement.E then moveDir += camCF.UpVector end
+            if movement.Q then moveDir -= camCF.UpVector end
+            if moveDir.Magnitude > 0 then
+                hrp.CFrame = hrp.CFrame + (moveDir.Unit * 5)
+            end
+            for _,v in pairs(player.Character:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
             end
         end
-    end
 
-    -- Speed TP
-    if speedTPEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = player.Character.HumanoidRootPart
-        local camCF = workspace.CurrentCamera.CFrame
-        local moveVector = Vector3.new()
-        if tpDirection.W then moveVector += camCF.LookVector end
-        if tpDirection.S then moveVector -= camCF.LookVector end
-        if tpDirection.A then moveVector -= camCF.RightVector end
-        if tpDirection.D then moveVector += camCF.RightVector end
-        if moveVector.Magnitude > 0 then
-            hrp.CFrame = hrp.CFrame + (moveVector.Unit * tpDistance)
-            task.wait(tpDelay)
+        -- Speed TP
+        if speedTPEnabled then
+            local moveVector = Vector3.new()
+            if tpDirection.W then moveVector += camCF.LookVector end
+            if tpDirection.S then moveVector -= camCF.LookVector end
+            if tpDirection.A then moveVector -= camCF.RightVector end
+            if tpDirection.D then moveVector += camCF.RightVector end
+            if moveVector.Magnitude > 0 then
+                hrp.CFrame = hrp.CFrame + (moveVector.Unit * tpDistance)
+                task.wait(tpDelay)
+            end
+        end
+
+        -- Float
+        if floatEnabled and humanoid then
+            if humanoid.FloorMaterial == Enum.Material.Air then
+                humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+                humanoid.Gravity = floatGravity
+            else
+                humanoid.Gravity = workspace.Gravity
+            end
         end
     end
 end)
@@ -266,24 +307,3 @@ local function getClosestTarget()
                 local dist = (Vector2.new(headPos.X, headPos.Y) - Vector2.new(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y/2)).Magnitude
                 if dist <= shortestDistance then
                     shortestDistance = dist
-                    closestPlayer = plr
-                end
-            end
-        end
-    end
-    return closestPlayer
-end
-
--- Loop Aimbot
-runService.RenderStepped:Connect(function()
-    if aimbotEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local target = getClosestTarget()
-        if target and target.Character and target.Character:FindFirstChild("Head") then
-            workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, target.Character.Head.Position)
-        end
-        if aimbotEnabled then
-            fovCircle.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y/2)
-            fovCircle.Radius = fovValue
-        end
-    end
-end)
